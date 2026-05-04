@@ -8,7 +8,6 @@ TRACKED_PATHS=(
 )
 
 WORKSPACE_CATALOG_FILE="pnpm-workspace.yaml"
-SYNC_MARKER_FILE=".sync-marker"
 
 usage() {
   echo "Usage: $0 --init|--sync --target-repo <url> [--source-repo <url>]"
@@ -100,10 +99,8 @@ do_init() {
   generate_root_package_json "package.json"
   generate_gitignore ".gitignore"
 
-  echo "$SOURCE_HEAD" > "$SYNC_MARKER_FILE"
-
   git add .
-  git commit -m "chore: add generated root files and sync marker" --allow-empty || true
+  git commit -m "$(printf 'chore: add generated root files\n\n[synced from %s]' "$SOURCE_HEAD")" --allow-empty || true
 
   echo "==> Pushing to target repo..."
   git remote add target "$TARGET_REPO" 2>/dev/null || git remote set-url target "$TARGET_REPO"
@@ -125,12 +122,11 @@ do_sync() {
   echo "==> Cloning target repo..."
   git clone "$TARGET_REPO" "$WORK_DIR/target"
 
-  if [[ ! -f "$WORK_DIR/target/$SYNC_MARKER_FILE" ]]; then
-    echo "Error: target repo has no $SYNC_MARKER_FILE. Run --init first."
+  LAST_SYNCED=$(git -C "$WORK_DIR/target" log -1 --format="%B" | grep -o '\[synced from [a-f0-9]*\]' | grep -o '[a-f0-9]\{40\}' || true)
+  if [[ -z "$LAST_SYNCED" ]]; then
+    echo "Error: target repo has no [synced from <sha>] marker in latest commit. Run --init first."
     exit 1
   fi
-
-  LAST_SYNCED=$(cat "$WORK_DIR/target/$SYNC_MARKER_FILE")
   echo "==> Last synced SHA: $LAST_SYNCED"
 
   CURRENT_HEAD=$(git rev-parse HEAD)
@@ -198,8 +194,6 @@ do_sync() {
       fi
     fi
 
-    echo "$COMMIT_SHA" > "$WORK_DIR/target/$SYNC_MARKER_FILE"
-
     git -C "$WORK_DIR/target" add -A
 
     if git -C "$WORK_DIR/target" diff --cached --quiet; then
@@ -220,12 +214,9 @@ do_sync() {
     echo "==> Pushing $SYNCED synced commit(s) to target..."
     git -C "$WORK_DIR/target" push origin main
   else
-    echo "$CURRENT_HEAD" > "$WORK_DIR/target/$SYNC_MARKER_FILE"
-    git -C "$WORK_DIR/target" add -A
-    if ! git -C "$WORK_DIR/target" diff --cached --quiet; then
-      git -C "$WORK_DIR/target" commit -m "chore: update sync marker to $CURRENT_HEAD"
-      git -C "$WORK_DIR/target" push origin main
-    fi
+    git -C "$WORK_DIR/target" commit --allow-empty \
+      -m "$(printf 'chore: advance sync marker\n\n[synced from %s]' "$CURRENT_HEAD")"
+    git -C "$WORK_DIR/target" push origin main
   fi
 
   echo "==> Sync complete. Processed $COMMIT_COUNT commit(s), synced $SYNCED."
