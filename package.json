@@ -1,0 +1,12 @@
+{
+  "name": "zenbu-test-from",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "pnpm --filter @test/runtime start",
+    "typecheck": "pnpm -r --no-bail run typecheck"
+  },
+  "dependencies": {
+    "@test/alpha": "workspace:*"
+  }
+}

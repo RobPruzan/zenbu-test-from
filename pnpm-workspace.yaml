@@ -1,0 +1,6 @@
+packages:
+  - 'packages/*'
+  - 'apps/*'
+
+catalog:
+  effect: "3.21.1"
