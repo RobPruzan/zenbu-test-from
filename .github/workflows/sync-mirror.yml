@@ -29,5 +29,10 @@ jobs:
             StrictHostKeyChecking no
           EOF
 
+      - name: Configure git identity
+        run: |
+          git config --global user.name "zenbu-mirror[bot]"
+          git config --global user.email "mirror-bot@zenbu.dev"
+
       - name: Run sync
         run: bash scripts/sync-mirror.sh --sync --target-repo git@github.com:RobPruzan/zenbu-test-to.git

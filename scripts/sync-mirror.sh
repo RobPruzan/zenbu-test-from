@@ -172,7 +172,8 @@ do_sync() {
     fi
 
     COMMIT_MSG=$(git log -1 --format="%B" "$COMMIT_SHA")
-    COMMIT_AUTHOR=$(git log -1 --format="%an <%ae>" "$COMMIT_SHA")
+    COMMIT_AUTHOR_NAME=$(git log -1 --format="%an" "$COMMIT_SHA")
+    COMMIT_AUTHOR_EMAIL=$(git log -1 --format="%ae" "$COMMIT_SHA")
     COMMIT_DATE=$(git log -1 --format="%ai" "$COMMIT_SHA")
 
     echo "    sync $COMMIT_SHA: $(echo "$COMMIT_MSG" | head -1)"
@@ -213,16 +214,11 @@ do_sync() {
       continue
     fi
 
-    GIT_AUTHOR_NAME="${COMMIT_AUTHOR%% <*}" \
-    GIT_AUTHOR_EMAIL="$(echo "$COMMIT_AUTHOR" | sed 's/.*<\(.*\)>/\1/')" \
+    GIT_AUTHOR_NAME="$COMMIT_AUTHOR_NAME" \
+    GIT_AUTHOR_EMAIL="$COMMIT_AUTHOR_EMAIL" \
     GIT_AUTHOR_DATE="$COMMIT_DATE" \
     GIT_COMMITTER_DATE="$COMMIT_DATE" \
-    git -C "$WORK_DIR/target" commit -m "$(cat <<COMMITMSG
-${COMMIT_MSG}
-
-[synced from ${COMMIT_SHA}]
-COMMITMSG
-)"
+    git -C "$WORK_DIR/target" commit -m "$(printf '%s\n\n[synced from %s]' "$COMMIT_MSG" "$COMMIT_SHA")"
 
     SYNCED=$((SYNCED + 1))
     cd "$SOURCE_DIR"
