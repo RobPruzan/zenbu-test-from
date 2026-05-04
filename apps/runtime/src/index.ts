@@ -1,3 +1,3 @@
-import { alphaMain } from "@test/alpha"
+import { alphaMain, alphaHelper } from "@test/alpha"
 
-console.log(alphaMain())
+console.log(alphaMain(), alphaHelper())
