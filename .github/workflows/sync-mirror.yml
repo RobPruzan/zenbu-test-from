@@ -1,0 +1,33 @@
+name: Sync Mirror
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install git-filter-repo
+        run: pip install git-filter-repo
+
+      - name: Set up SSH for target repo
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MIRROR_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<EOF
+          Host github.com
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Run sync
+        run: bash scripts/sync-mirror.sh --sync --target-repo git@github.com:RobPruzan/zenbu-test-to.git
