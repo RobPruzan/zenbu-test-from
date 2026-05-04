@@ -178,22 +178,15 @@ do_sync() {
 
     echo "    sync $COMMIT_SHA: $(echo "$COMMIT_MSG" | head -1)"
 
-    cd "$WORK_DIR/target"
+    for path in "${TRACKED_PATHS[@]}"; do
+      TARGET_PATH="$WORK_DIR/target/$path"
+      rm -rf "$TARGET_PATH"
 
-    if [[ "$TOUCHES_TRACKED" == true ]]; then
-      for path in "${TRACKED_PATHS[@]}"; do
-        TARGET_PATH="$WORK_DIR/target/$path"
-        rm -rf "$TARGET_PATH"
-
-        SOURCE_PATH="$SOURCE_DIR/$path"
-        if [[ -d "$SOURCE_PATH" ]]; then
-          git -C "$SOURCE_DIR" show "$COMMIT_SHA:$path" > /dev/null 2>&1 && {
-            mkdir -p "$(dirname "$TARGET_PATH")"
-            git -C "$SOURCE_DIR" archive "$COMMIT_SHA" -- "$path" | tar -x -C "$WORK_DIR/target/"
-          } || true
-        fi
-      done
-    fi
+      if git -C "$SOURCE_DIR" show "$COMMIT_SHA:$path" > /dev/null 2>&1; then
+        mkdir -p "$(dirname "$TARGET_PATH")"
+        git -C "$SOURCE_DIR" archive "$COMMIT_SHA" -- "$path" | tar -x -C "$WORK_DIR/target/"
+      fi
+    done
 
     if [[ "$TOUCHES_WORKSPACE" == true ]]; then
       SOURCE_WORKSPACE_CONTENT=$(git -C "$SOURCE_DIR" show "$COMMIT_SHA:$WORKSPACE_CATALOG_FILE" 2>/dev/null || true)
@@ -208,7 +201,7 @@ do_sync() {
     echo "$COMMIT_SHA" > "$WORK_DIR/target/$SYNC_MARKER_FILE"
 
     git -C "$WORK_DIR/target" add -A
-    
+
     if git -C "$WORK_DIR/target" diff --cached --quiet; then
       echo "      (empty diff after filtering, skipping)"
       continue
@@ -221,8 +214,7 @@ do_sync() {
     git -C "$WORK_DIR/target" commit -m "$(printf '%s\n\n[synced from %s]' "$COMMIT_MSG" "$COMMIT_SHA")"
 
     SYNCED=$((SYNCED + 1))
-    cd "$SOURCE_DIR"
-  done
+  done <<< "$COMMITS"
 
   if [[ $SYNCED -gt 0 ]]; then
     echo "==> Pushing $SYNCED synced commit(s) to target..."
