@@ -1,3 +1,7 @@
 export function alphaMain() {
-  return "alpha-v1"
+  return "alpha-v2"
+}
+
+export function alphaHelper() {
+  return 42
 }
