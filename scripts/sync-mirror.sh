@@ -9,6 +9,31 @@ TRACKED_PATHS=(
 
 WORKSPACE_CATALOG_FILE="pnpm-workspace.yaml"
 
+REMOVE_FILES=(
+  "LICENSE"
+  "LICENSE.md"
+)
+
+transform_files() {
+  local target_dir="$1"
+
+  for file in "${REMOVE_FILES[@]}"; do
+    find "$target_dir/packages" -name "$file" -delete 2>/dev/null || true
+  done
+
+  for readme in $(find "$target_dir/packages" -name "README.md" 2>/dev/null); do
+    local pkg_dir
+    pkg_dir=$(dirname "$readme")
+    local pkg_name
+    pkg_name=$(basename "$pkg_dir")
+    cat > "$readme" <<READMEEOF
+# ${pkg_name}
+
+Part of the [zenbu-ts](https://github.com/zenbu-labs/zenbu-ts) framework.
+READMEEOF
+  done
+}
+
 usage() {
   echo "Usage: $0 --init|--sync --target-repo <url> [--source-repo <url>]"
   echo ""
@@ -98,6 +123,9 @@ do_init() {
   generate_workspace_yaml "$WORKSPACE_CATALOG_FILE" "$WORKSPACE_CATALOG_FILE"
   generate_root_package_json "package.json"
   generate_gitignore ".gitignore"
+
+  echo "==> Applying file transforms..."
+  transform_files "."
 
   git add .
   git commit -m "$(printf 'chore: add generated root files\n\n[synced from %s]' "$SOURCE_HEAD")" --allow-empty || true
@@ -194,6 +222,8 @@ do_sync() {
       fi
     fi
 
+    transform_files "$WORK_DIR/target"
+
     git -C "$WORK_DIR/target" add -A
 
     if git -C "$WORK_DIR/target" diff --cached --quiet; then
@@ -210,13 +240,17 @@ do_sync() {
     SYNCED=$((SYNCED + 1))
   done <<< "$COMMITS"
 
-  if [[ $SYNCED -gt 0 ]]; then
-    echo "==> Pushing $SYNCED synced commit(s) to target..."
-    git -C "$WORK_DIR/target" push origin main
-  else
-    git -C "$WORK_DIR/target" commit --allow-empty \
-      -m "$(printf 'chore: advance sync marker\n\n[synced from %s]' "$CURRENT_HEAD")"
-    git -C "$WORK_DIR/target" push origin main
+  if [[ $SYNCED -eq 0 ]]; then
+    echo "==> No tracked changes to sync. Skipping push."
+    echo "==> Sync complete. Processed $COMMIT_COUNT commit(s), synced 0."
+    exit 0
+  fi
+
+  echo "==> Pushing $SYNCED synced commit(s) to target..."
+  if ! git -C "$WORK_DIR/target" push origin main 2>&1; then
+    echo "FATAL: push to target repo failed. Target may have diverged." >&2
+    echo "This is an invalid state -- manual intervention required." >&2
+    exit 1
   fi
 
   echo "==> Sync complete. Processed $COMMIT_COUNT commit(s), synced $SYNCED."
