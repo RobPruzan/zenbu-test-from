@@ -3,4 +3,4 @@ packages:
   - 'apps/*'
 
 catalog:
-  effect: "3.21.1"
+  effect: "3.22.0"
